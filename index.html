@@ -46,7 +46,7 @@
   <!-- Google Slides Section -->
   <div id="slides-section" class="section">
     <iframe
-      src="https://docs.google.com/presentation/d/e/2PACX-1vTr65TWJAKH-8sEuWBc46E4HrvnnDYGfk5szsxWjxlw_HVRvw7x-9RgKJlKayFzM2woNY3pG0RUoJqU/pub?start=true&loop=true&delayms=5000&rm=minimal"
+      src="https://docs.google.com/presentation/d/e/2PACX-1vTr65TWJAKH-8sEuWBc46E4HrvnnDYGfk5szsxWjxlw_HVRvw7x-9RgKJlKayFzM2woNY3pG0RUoJqU/pub?start=true&loop=true&delayms=5000"
       allowfullscreen
     ></iframe>
   </div>
@@ -66,14 +66,13 @@
     const sstImg = document.getElementById('sst-img');
 
     let currentIndex = 0;
-
     function showSection(index) {
       sections.forEach((sec, i) => {
         sec.classList.toggle('visible', i === index);
       });
     }
 
-    // SST image generation
+    // 🧠 SST frame loader with validity check
     function getDateString(daysAgo) {
       const date = new Date();
       date.setUTCDate(date.getUTCDate() - daysAgo);
@@ -83,45 +82,56 @@
       return `${yyyy}${mm}${dd}`;
     }
 
-    const sstFrames = [];
-    for (let i = 6; i >= 0; i--) {
-      const dateStr = getDateString(i);
-      const url = `https://www.ospo.noaa.gov/data/cb/ssta/daily/${dateStr.slice(0,4)}/ct5km_ssta_v3.1_global_${dateStr}.png`;
-      sstFrames.push(url);
-    }
-
-    // Preload SST images
-    sstFrames.forEach(url => {
-      const img = new Image();
-      img.src = url;
-    });
-
+    let validSSTFrames = [];
     let sstIndex = 0;
     let sstInterval = null;
+
+    function preloadSSTImages(callback) {
+      let checksRemaining = 7;
+      for (let i = 0; i < 7; i++) {
+        const dateStr = getDateString(i);
+        const url = `https://www.ospo.noaa.gov/data/cb/ssta/daily/${dateStr.slice(0,4)}/ct5km_ssta_v3.1_global_${dateStr}.png`;
+
+        const img = new Image();
+        img.onload = () => {
+          validSSTFrames.push(url);
+          if (--checksRemaining === 0) callback();
+        };
+        img.onerror = () => {
+          if (--checksRemaining === 0) callback();
+        };
+        img.src = url;
+      }
+    }
+
+    function updateSSTFrame() {
+      if (validSSTFrames.length > 0) {
+        sstImg.src = validSSTFrames[sstIndex] + `?t=${Date.now()}`;
+        sstIndex = (sstIndex + 1) % validSSTFrames.length;
+      }
+    }
 
     function startSSTAnimation(callback) {
       sstIndex = 0;
       updateSSTFrame();
+      let count = 1;
+
       sstInterval = setInterval(() => {
-        sstIndex++;
-        if (sstIndex >= sstFrames.length) {
+        if (count >= validSSTFrames.length) {
           clearInterval(sstInterval);
-          callback(); // move to next section
+          callback();
         } else {
           updateSSTFrame();
+          count++;
         }
-      }, 1000); // 1s per frame
+      }, 1000);
     }
 
-    function updateSSTFrame() {
-      sstImg.src = sstFrames[sstIndex] + `?t=${Date.now()}`;
-    }
-
-    // Rotation logic
+    // 🔄 Rotation logic
     function startSlidesSection() {
       currentIndex = 1;
       showSection(currentIndex);
-      setTimeout(() => startSSTSection(), 15000); // 15 sec
+      setTimeout(() => startSSTSection(), 15000); // 15 seconds max
     }
 
     function startSSTSection() {
@@ -139,12 +149,15 @@
       video.play();
     }
 
-    // Start cycle after video ends
     video.loop = false;
     video.addEventListener('ended', () => {
       startSlidesSection();
     });
 
+    // 🧠 Start after preload
+    preloadSSTImages(() => {
+      console.log(`Loaded ${validSSTFrames.length} SST frames`);
+    });
   </script>
 
 </body>
