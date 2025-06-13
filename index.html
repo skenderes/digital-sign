@@ -5,80 +5,94 @@
   <title>Digital Sign</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
       background: black;
-      color: white;
-      font-family: Arial, sans-serif;
       overflow: hidden;
+      height: 100%;
     }
-    header {
-      text-align: center;
-      padding: 1rem;
-      font-size: 2rem;
-      background-color: #222;
-    }
-    .video-container {
-      width: 100%;
-      max-height: 50vh;
-      overflow: hidden;
+    #video-container, #slideshow {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
     }
     video {
       width: 100%;
-      height: auto;
-    }
-    .slideshow {
-      position: relative;
-      height: 300px;
-      background-color: #111;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      height: 100%;
+      object-fit: cover;
     }
     .slide {
       position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
       opacity: 0;
       transition: opacity 1s ease-in-out;
-      max-width: 100%;
-      max-height: 100%;
     }
     .slide.active {
       opacity: 1;
     }
-    iframe {
-      width: 100%;
-      height: 400px;
-      border: none;
+    #video-container.hidden,
+    #slideshow.hidden {
+      display: none;
     }
   </style>
 </head>
 <body>
 
-  <header>Welcome to Our Store</header>
-
-  <div class="video-container">
-    <video autoplay muted loop>
-      <source src="https://github.com/skenderes/digital-sign/blob/main/media/IUI_2023_intro_alpha_16x9_24fps.mp4" type="video/mp4">
+  <!-- Video section -->
+  <div id="video-container">
+    <video id="promoVideo" autoplay muted playsinline>
+      <source src="https://raw.githubusercontent.com/skenderes/digital-sign/main/media/IUI_2023_intro_alpha_16x9_24fps.mp4" type="video/mp4">
       Your browser does not support the video tag.
     </video>
   </div>
 
-  <div class="slideshow">
-    <img class="slide active" src="https://via.placeholder.com/800x300/FF5733/FFFFFF?text=Sale+Today%21" alt="Slide 1">
-    <img class="slide" src="https://via.placeholder.com/800x300/33C1FF/000000?text=New+Arrivals+in+Store" alt="Slide 2">
-    <img class="slide" src="https://via.placeholder.com/800x300/75FF33/000000?text=Open+7+Days+a+Week" alt="Slide 3">
+  <!-- Slideshow section -->
+  <div id="slideshow" class="hidden">
+    <img class="slide active" src="https://raw.githubusercontent.com/yourusername/digital-sign/main/media/sale-banner.jpg" alt="Slide 1">
+    <img class="slide" src="https://raw.githubusercontent.com/yourusername/digital-sign/main/media/new-arrival.jpg" alt="Slide 2">
+    <img class="slide" src="https://raw.githubusercontent.com/yourusername/digital-sign/main/media/thank-you.jpg" alt="Slide 3">
   </div>
 
-  <iframe src="https://forecast7.com/en/40d71n74d01/new-york/" allowtransparency="true" sandbox="allow-same-origin allow-scripts"></iframe>
-
   <script>
+    const videoContainer = document.getElementById('video-container');
+    const video = document.getElementById('promoVideo');
+    const slideshow = document.getElementById('slideshow');
     const slides = document.querySelectorAll('.slide');
-    let index = 0;
-    setInterval(() => {
-      slides[index].classList.remove('active');
-      index = (index + 1) % slides.length;
-      slides[index].classList.add('active');
-    }, 4000);
+    let slideIndex = 0;
+
+    // Rotate slides every 5 seconds
+    function startSlideshow() {
+      slideshow.classList.remove('hidden');
+      let slideshowDuration = 15000; // Total slideshow time (15 sec)
+      let interval = setInterval(() => {
+        slides[slideIndex].classList.remove('active');
+        slideIndex = (slideIndex + 1) % slides.length;
+        slides[slideIndex].classList.add('active');
+      }, 5000);
+
+      // After slideshowDuration, return to video
+      setTimeout(() => {
+        clearInterval(interval);
+        slideshow.classList.add('hidden');
+        videoContainer.classList.remove('hidden');
+        video.currentTime = 0;
+        video.play();
+      }, slideshowDuration);
+    }
+
+    // When video ends, switch to slideshow
+    video.addEventListener('ended', () => {
+      videoContainer.classList.add('hidden');
+      startSlideshow();
+    });
+
+    // Optional: loop the video once before switching
+    video.loop = false;
   </script>
 
 </body>
