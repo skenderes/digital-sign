@@ -72,7 +72,7 @@
       });
     }
 
-    // 🧠 SST frame loader with validity check
+    // Helper: get YYYYMMDD for N days ago in UTC
     function getDateString(daysAgo) {
       const date = new Date();
       date.setUTCDate(date.getUTCDate() - daysAgo);
@@ -86,9 +86,12 @@
     let sstIndex = 0;
     let sstInterval = null;
 
+    // Preload and validate SST images
     function preloadSSTImages(callback) {
-      let checksRemaining = 7;
-      for (let i = 0; i < 30; i++) {
+      let checksRemaining = 14; // number of days/frames to try
+      validSSTFrames = [];
+
+      for (let i = 0; i < 14; i++) {
         const dateStr = getDateString(i);
         const url = `https://www.ospo.noaa.gov/data/cb/ssta/daily/${dateStr.slice(0,4)}/ct5km_ssta_v3.1_global_${dateStr}.png`;
 
@@ -111,6 +114,7 @@
       }
     }
 
+    // Play SST animation fully then call callback
     function startSSTAnimation(callback) {
       sstIndex = 0;
       updateSSTFrame();
@@ -124,22 +128,30 @@
           updateSSTFrame();
           count++;
         }
-      }, 500);
+      }, 500); // speed: 500ms per frame
     }
 
-    // 🔄 Rotation logic
+    // Start slides section for fixed duration, then callback
     function startSlidesSection() {
       currentIndex = 1;
       showSection(currentIndex);
-      setTimeout(() => startSSTSection(), 15000); // 15 seconds max
+      setTimeout(() => {
+        startSSTSection();
+      }, 15000); // slides duration: 15 sec (adjust if you want)
     }
 
     function startSSTSection() {
       currentIndex = 2;
       showSection(currentIndex);
-      startSSTAnimation(() => {
+
+      if (validSSTFrames.length > 0) {
+        startSSTAnimation(() => {
+          startVideoSection();
+        });
+      } else {
+        // No SST frames loaded, skip to video
         startVideoSection();
-      });
+      }
     }
 
     function startVideoSection() {
@@ -149,14 +161,16 @@
       video.play();
     }
 
+    // On video ended, start slideshow
     video.loop = false;
     video.addEventListener('ended', () => {
       startSlidesSection();
     });
 
-    // 🧠 Start after preload
+    // Preload SST images then start video playback cycle
     preloadSSTImages(() => {
       console.log(`Loaded ${validSSTFrames.length} SST frames`);
+      startVideoSection();
     });
   </script>
 
