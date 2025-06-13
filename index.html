@@ -70,7 +70,7 @@
     // Rotate slides every 5 seconds
     function startSlideshow() {
       slideshow.classList.remove('hidden');
-      let slideshowDuration = 15000; // Total slideshow time (15 sec)
+      let slideshowDuration = 25000; // Total slideshow time (25 sec)
       let interval = setInterval(() => {
         slides[slideIndex].classList.remove('active');
         slideIndex = (slideIndex + 1) % slides.length;
