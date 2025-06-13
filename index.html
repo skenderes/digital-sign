@@ -5,53 +5,21 @@
   <title>Digital Sign</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: black;
-      overflow: hidden;
-      height: 100%;
-    }
-    .section {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100vw;
-      height: 100vh;
-      display: none;
-    }
-    .visible {
-      display: block;
-    }
-    video, iframe, img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border: none;
-    }
-    #sst-img {
-      object-fit: contain;
-      background: black;
-    }
+    html, body { margin:0; padding:0; height:100%; background:black; overflow:hidden; }
+    .section { position:absolute; top:0; left:0; width:100vw; height:100vh; display:none; }
+    .visible { display:block; }
+    video,img { width:100%; height:100%; object-fit:cover; }
+    #slide-img, #sst-img { object-fit:contain; background:black; transition: opacity 1s ease; opacity:0; }
+    #slide-img.visible, #sst-img.visible { opacity:1; }
   </style>
 </head>
 <body>
-
-  <!-- Video Section -->
   <div id="video-section" class="section visible">
-    <video id="promoVideo" autoplay muted playsinline>
-      <source src="https://raw.githubusercontent.com/skenderes/digital-sign/main/media/IUI_2023_intro_alpha_16x9_24fps.mp4" type="video/mp4">
-    </video>
+    <video id="promoVideo" autoplay muted playsinline src="https://raw.githubusercontent.com/skenderes/digital-sign/main/media/IUI_2023_intro_alpha_16x9_24fps.mp4"></video>
   </div>
-
-  <!-- Google Slides Section -->
   <div id="slides-section" class="section">
-    <iframe
-      src="https://docs.google.com/presentation/d/e/2PACX-1vTr65TWJAKH-8sEuWBc46E4HrvnnDYGfk5szsxWjxlw_HVRvw7x-9RgKJlKayFzM2woNY3pG0RUoJqU/pub?start=true&loop=true&delayms=5000"
-      allowfullscreen
-    ></iframe>
+    <img id="slide-img" src="" alt="Slide">
   </div>
-
-  <!-- SST Animation Section -->
   <div id="sst-section" class="section">
     <img id="sst-img" src="" alt="SST Animation">
   </div>
@@ -63,116 +31,114 @@
       document.getElementById('sst-section')
     ];
     const video = document.getElementById('promoVideo');
+    const slideImg = document.getElementById('slide-img');
     const sstImg = document.getElementById('sst-img');
 
-    let currentIndex = 0;
-    function showSection(index) {
-      sections.forEach((sec, i) => {
-        sec.classList.toggle('visible', i === index);
-      });
+    let slideUrls = [], sstUrls = [], slideIndex=0, sstIndex=0;
+
+    function showSection(i){
+      sections.forEach((s,idx)=>s.classList.toggle('visible', idx===i));
     }
 
-    // Helper: get YYYYMMDD for N days ago in UTC
-    function getDateString(daysAgo) {
-      const date = new Date();
-      date.setUTCDate(date.getUTCDate() - daysAgo);
-      const yyyy = date.getUTCFullYear();
-      const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(date.getUTCDate()).padStart(2, '0');
-      return `${yyyy}${mm}${dd}`;
+    // 🚀 Load slideshow images from GitHub /media/slides folder via API
+    async function loadSlideList(){
+      const resp = await fetch('https://api.github.com/repos/skenderes/digital-sign/contents/media/slides');
+      const data = await resp.json();
+      slideUrls = data
+        .filter(f=>'file'===f.type && /\.(jpe?g|png)$/i.test(f.name))
+        .map(f=>f.download_url);
     }
 
-    let validSSTFrames = [];
-    let sstIndex = 0;
-    let sstInterval = null;
-
-    // Preload and validate SST images
-    function preloadSSTImages(callback) {
-      let checksRemaining = 14; // number of days/frames to try
-      validSSTFrames = [];
-
-      for (let i = 0; i < 14; i++) {
-        const dateStr = getDateString(i);
-        const url = `https://www.ospo.noaa.gov/data/cb/ssta/daily/${dateStr.slice(0,4)}/ct5km_ssta_v3.1_global_${dateStr}.png`;
-
+    // 🌊 Load SST frames
+    function getSSTDates(n=14){
+      const arr=[];for(let i=0;i<n;i++){
+        const d=new Date(); d.setUTCDate(d.getUTCDate()-i);
+        const y=d.getUTCFullYear(), m=(d.getUTCMonth()+1).toString().padStart(2,'0');
+        const dd=d.getUTCDate().toString().padStart(2,'0');
+        arr.push(`https://www.ospo.noaa.gov/data/cb/ssta/daily/${y}/ct5km_ssta_v3.1_global_${y}${m}${dd}.png`);
+      }
+      return arr;
+    }
+    function preloadUrls(urls){
+      return Promise.all(urls.map(u=>new Promise(resolve=>{
         const img = new Image();
-        img.onload = () => {
-          validSSTFrames.push(url);
-          if (--checksRemaining === 0) callback();
-        };
-        img.onerror = () => {
-          if (--checksRemaining === 0) callback();
-        };
-        img.src = url;
-      }
+        img.onload=()=>resolve(u);
+        img.onerror=()=>resolve(null);
+        img.src=u;
+      }))).then(results=>results.filter(Boolean));
     }
 
-    function updateSSTFrame() {
-      if (validSSTFrames.length > 0) {
-        sstImg.src = validSSTFrames[sstIndex] + `?t=${Date.now()}`;
-        sstIndex = (sstIndex + 1) % validSSTFrames.length;
-      }
+    async function init(){
+      await loadSlideList();
+      sstUrls = await preloadUrls(getSSTDates(14));
+      slideUrls = await preloadUrls(slideUrls);
+      startCycle();
     }
 
-    // Play SST animation fully then call callback
-    function startSSTAnimation(callback) {
-      sstIndex = 0;
-      updateSSTFrame();
-      let count = 1;
-
-      sstInterval = setInterval(() => {
-        if (count >= validSSTFrames.length) {
-          clearInterval(sstInterval);
-          callback();
-        } else {
-          updateSSTFrame();
-          count++;
-        }
-      }, 500); // speed: 500ms per frame
+    function startCycle(){
+      showSection(0);
+      video.loop=false;
+      video.onended = nextFromVideo;
     }
 
-    // Start slides section for fixed duration, then callback
-    function startSlidesSection() {
-      currentIndex = 1;
-      showSection(currentIndex);
-      setTimeout(() => {
-        startSSTSection();
-      }, 15000); // slides duration: 15 sec (adjust if you want)
-    }
-
-    function startSSTSection() {
-      currentIndex = 2;
-      showSection(currentIndex);
-
-      if (validSSTFrames.length > 0) {
-        startSSTAnimation(() => {
-          startVideoSection();
-        });
+    function nextFromVideo(){
+      if(slideUrls.length){
+        playSlides();
+      } else if(sstUrls.length){
+        playSST();
       } else {
-        // No SST frames loaded, skip to video
-        startVideoSection();
+        restartVideo();
       }
     }
 
-    function startVideoSection() {
-      currentIndex = 0;
-      showSection(currentIndex);
-      video.currentTime = 0;
+    function playSlides(){
+      showSection(1);
+      slideIndex=0;
+      slideImg.src=slideUrls[slideIndex];
+      slideImg.classList.add('visible');
+      const slideInterval = setInterval(()=>{
+        slideIndex++;
+        if(slideIndex>=slideUrls.length){
+          clearInterval(slideInterval);
+          slideImg.classList.remove('visible');
+          if(sstUrls.length) playSST();
+          else restartVideo();
+        } else {
+          slideImg.classList.remove('visible');
+          setTimeout(() => {
+            slideImg.src = slideUrls[slideIndex];
+            slideImg.classList.add('visible');
+          }, 300); // Fade out before next image
+        }
+      }, 5000);
+    }
+
+    function playSST(){
+      showSection(2);
+      sstIndex=0;
+      updateSST();
+    }
+
+    function updateSST(){
+      sstImg.src=sstUrls[sstIndex]+'?t='+Date.now();
+      sstImg.classList.add('visible');
+      sstIndex++;
+      if(sstIndex<sstUrls.length){
+        setTimeout(()=>updateSST(),400);
+      } else {
+        sstImg.classList.remove('visible');
+        restartVideo();
+      }
+    }
+
+    function restartVideo(){
+      showSection(0);
+      video.currentTime=0;
       video.play();
     }
 
-    // On video ended, start slideshow
-    video.loop = false;
-    video.addEventListener('ended', () => {
-      startSlidesSection();
-    });
-
-    // Preload SST images then start video playback cycle
-    preloadSSTImages(() => {
-      console.log(`Loaded ${validSSTFrames.length} SST frames`);
-      startVideoSection();
-    });
+    // Start
+    init();
   </script>
-
 </body>
 </html>
