@@ -12,69 +12,87 @@
       overflow: hidden;
       height: 100%;
     }
-    #video-section, #slideshow-section {
+    #video-container, #slideshow {
       position: absolute;
       top: 0; left: 0;
       width: 100vw;
       height: 100vh;
       z-index: 0;
     }
-    video, img {
+    video {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-    .hidden {
+    .slide {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+    }
+    .slide.active {
+      opacity: 1;
+    }
+    #video-container.hidden,
+    #slideshow.hidden {
       display: none;
     }
   </style>
 </head>
 <body>
 
-  <div id="video-section">
+  <!-- Video section -->
+  <div id="video-container">
     <video id="promoVideo" autoplay muted playsinline>
-      <source src="https://raw.githubusercontent.com/skenderes/digital-sign/main/media/IUI_2023_intro_alpha_16x9_24fps.mp4" type="video/mp4">
+      <source src="https://raw.githubusercontent.com/yourusername/digital-sign/main/media/promo.mp4" type="video/mp4">
       Your browser does not support the video tag.
     </video>
   </div>
 
-  <div id="slideshow-section" class="hidden">
-    <img id="slide-img" src="" alt="Slideshow Image">
+  <!-- Slideshow section -->
+  <div id="slideshow" class="hidden">
+    <img class="slide active" src="https://raw.githubusercontent.com/yourusername/digital-sign/main/media/sale-banner.jpg" alt="Slide 1">
+    <img class="slide" src="https://raw.githubusercontent.com/yourusername/digital-sign/main/media/new-arrival.jpg" alt="Slide 2">
+    <img class="slide" src="https://raw.githubusercontent.com/yourusername/digital-sign/main/media/thank-you.jpg" alt="Slide 3">
   </div>
 
   <script>
+    const videoContainer = document.getElementById('video-container');
     const video = document.getElementById('promoVideo');
-    const slideshow = document.getElementById('slideshow-section');
-    const slideImg = document.getElementById('slide-img');
+    const slideshow = document.getElementById('slideshow');
+    const slides = document.querySelectorAll('.slide');
+    let slideIndex = 0;
 
-    let slideUrls = [], slideIndex = 0;
-
-    async function fetchSlideImages() {
-      const resp = await fetch('https://api.github.com/repos/skenderes/digital-sign/contents/media/slides');
-      const data = await resp.json();
-      slideUrls = data
-        .filter(f => f.type === 'file' && /\.(jpe?g|png)$/i.test(f.name))
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map(f => f.download_url);
-    }
-
+    // Rotate slides every 5 seconds
     function startSlideshow() {
-      document.getElementById('video-section').classList.add('hidden');
       slideshow.classList.remove('hidden');
-      slideIndex = 0;
-      showNextSlide();
+      let slideshowDuration = 15000; // Total slideshow time (15 sec)
+      let interval = setInterval(() => {
+        slides[slideIndex].classList.remove('active');
+        slideIndex = (slideIndex + 1) % slides.length;
+        slides[slideIndex].classList.add('active');
+      }, 5000);
+
+      // After slideshowDuration, return to video
+      setTimeout(() => {
+        clearInterval(interval);
+        slideshow.classList.add('hidden');
+        videoContainer.classList.remove('hidden');
+        video.currentTime = 0;
+        video.play();
+      }, slideshowDuration);
     }
 
-    function showNextSlide() {
-      if (slideUrls.length === 0) return;
-      slideImg.src = slideUrls[slideIndex];
-      slideIndex = (slideIndex + 1) % slideUrls.length;
-      setTimeout(showNextSlide, 5000);
-    }
-
+    // When video ends, switch to slideshow
     video.addEventListener('ended', () => {
-      fetchSlideImages().then(startSlideshow);
+      videoContainer.classList.add('hidden');
+      startSlideshow();
     });
+
+    // Optional: loop the video once before switching
+    video.loop = false;
   </script>
 
 </body>
