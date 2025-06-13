@@ -23,7 +23,7 @@
       .map(f => f.download_url);
   }
 
-  function getSSTDates(n = 14) {
+  function getSSTDates(n = 30) {
     const arr = [];
     for (let i = n - 1; i >= 0; i--) {
       const d = new Date();
@@ -46,14 +46,16 @@
   }
 
   async function init() {
-    await loadSlideList();
+    await loadSlideList(); // populates slideUrls
+
     const rawSST = getSSTDates(30);
-    const [loadedSST, loadedSlides] = await Promise.all([
-      preloadUrls(rawSST),
-      preloadUrls(slideUrls)
-    ]);
+    const loadedSST = await preloadUrls(rawSST); // preload only SSTs
+
     sstUrls = loadedSST;
-    slideUrls = loadedSlides;
+
+    console.log("Loaded slides:", slideUrls.length);
+    console.log("Loaded SST frames:", sstUrls.length);
+
     startCycle();
   }
 
@@ -121,7 +123,7 @@
 
     setTimeout(() => {
       sstImg.classList.remove('visible');
-      setTimeout(() => animateSST(), 150); // faster frame rate
+      setTimeout(() => animateSST(), 150);
     }, 250);
   }
 
