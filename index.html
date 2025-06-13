@@ -88,7 +88,7 @@
 
     function preloadSSTImages(callback) {
       let checksRemaining = 7;
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < 30; i++) {
         const dateStr = getDateString(i);
         const url = `https://www.ospo.noaa.gov/data/cb/ssta/daily/${dateStr.slice(0,4)}/ct5km_ssta_v3.1_global_${dateStr}.png`;
 
@@ -124,7 +124,7 @@
           updateSSTFrame();
           count++;
         }
-      }, 1000);
+      }, 500);
     }
 
     // 🔄 Rotation logic
