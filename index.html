@@ -1,100 +1,81 @@
-<script>
-  const sections = [
-    document.getElementById('video-section'),
-    document.getElementById('slides-section'),
-    document.getElementById('sst-section')
-  ];
-  const video = document.getElementById('promoVideo');
-  const slideImg = document.getElementById('slide-img');
-  const sstImg = document.getElementById('sst-img');
-
-  let slideUrls = [], sstUrls = [], slideIndex = 0, sstIndex = 0;
-
-  function showSection(i) {
-    sections.forEach((s, idx) => s.classList.toggle('visible', idx === i));
-  }
-
-  async function loadSlideList() {
-    const resp = await fetch('https://api.github.com/repos/skenderes/digital-sign/contents/media/slides');
-    const data = await resp.json();
-    slideUrls = data
-      .filter(f => f.type === 'file' && /\.(jpe?g|png)$/i.test(f.name))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map(f => f.download_url);
-  }
-
-  function getSSTDates(n = 30) {
-    const arr = [];
-    for (let i = n - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setUTCDate(d.getUTCDate() - i);
-      const y = d.getUTCFullYear(),
-            m = String(d.getUTCMonth() + 1).padStart(2, '0'),
-            day = String(d.getUTCDate()).padStart(2, '0');
-      arr.push(`https://www.ospo.noaa.gov/data/cb/ssta/daily/${y}/ct5km_ssta_v3.1_global_${y}${m}${day}.png`);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Digital Sign</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      overflow: hidden;
+      height: 100%;
     }
-    return arr;
-  }
-
-  function preloadUrls(urls) {
-    return Promise.all(urls.map(url => new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => resolve(url);
-      img.onerror = () => resolve(null);
-      img.src = url;
-    }))).then(results => results.filter(Boolean));
-  }
-
-  async function init() {
-    await loadSlideList();
-    const rawSST = getSSTDates(30);
-    const [loadedSST, loadedSlides] = await Promise.all([
-      preloadUrls(rawSST),
-      preloadUrls(slideUrls)
-    ]);
-    sstUrls = loadedSST;
-    slideUrls = loadedSlides;
-    startCycle();
-  }
-
-  function startCycle() {
-    showSection(0);
-    video.loop = false;
-    video.onended = nextFromVideo;
-  }
-
-  function nextFromVideo() {
-    if (slideUrls.length > 0) {
-      playSlides();
-    } else if (sstUrls.length > 0) {
-      playSST();
-    } else {
-      restartVideo();
+    #video-section, #slideshow-section {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
     }
-  }
+    video, img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
 
-  function playSlides() {
-    showSection(1);
-    slideIndex = 0;
-    updateSlide();
-  }
+  <div id="video-section">
+    <video id="promoVideo" autoplay muted playsinline>
+      <source src="https://raw.githubusercontent.com/skenderes/digital-sign/main/media/IUI_2023_intro_alpha_16x9_24fps.mp4" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+  </div>
 
-  function updateSlide() {
-    if (slideIndex >= slideUrls.length) {
-      if (sstUrls.length > 0) playSST();
-      else restartVideo();
-      return;
+  <div id="slideshow-section" class="hidden">
+    <img id="slide-img" src="" alt="Slideshow Image">
+  </div>
+
+  <script>
+    const video = document.getElementById('promoVideo');
+    const slideshow = document.getElementById('slideshow-section');
+    const slideImg = document.getElementById('slide-img');
+
+    let slideUrls = [], slideIndex = 0;
+
+    async function fetchSlideImages() {
+      const resp = await fetch('https://api.github.com/repos/skenderes/digital-sign/contents/media/slides');
+      const data = await resp.json();
+      slideUrls = data
+        .filter(f => f.type === 'file' && /\.(jpe?g|png)$/i.test(f.name))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(f => f.download_url);
     }
 
-    slideImg.classList.remove('visible');
-    setTimeout(() => {
+    function startSlideshow() {
+      document.getElementById('video-section').classList.add('hidden');
+      slideshow.classList.remove('hidden');
+      slideIndex = 0;
+      showNextSlide();
+    }
+
+    function showNextSlide() {
+      if (slideUrls.length === 0) return;
       slideImg.src = slideUrls[slideIndex];
-      slideImg.onload = () => {
-        slideImg.classList.add('visible');
-        slideIndex++;
-        setTimeout(updateSlide, 6000); // 6s per slide
-      };
-    }, 300); // fade out time
-  }
+      slideIndex = (slideIndex + 1) % slideUrls.length;
+      setTimeout(showNextSlide, 5000);
+    }
 
-  function playSST() {
+    video.addEventListener('ended', () => {
+      fetchSlideImages().then(startSlideshow);
+    });
+  </script>
+
+</body>
+</html>
