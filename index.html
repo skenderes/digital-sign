@@ -46,16 +46,14 @@
   }
 
   async function init() {
-    await loadSlideList(); // populates slideUrls
-
+    await loadSlideList();
     const rawSST = getSSTDates(30);
-    const loadedSST = await preloadUrls(rawSST); // preload only SSTs
-
+    const [loadedSST, loadedSlides] = await Promise.all([
+      preloadUrls(rawSST),
+      preloadUrls(slideUrls)
+    ]);
     sstUrls = loadedSST;
-
-    console.log("Loaded slides:", slideUrls.length);
-    console.log("Loaded SST frames:", sstUrls.length);
-
+    slideUrls = loadedSlides;
     startCycle();
   }
 
@@ -78,60 +76,25 @@
   function playSlides() {
     showSection(1);
     slideIndex = 0;
-    slideImg.src = slideUrls[slideIndex];
-    slideImg.classList.add('visible');
-
-    const slideInterval = setInterval(() => {
-      slideImg.classList.remove('visible');
-      slideIndex++;
-      if (slideIndex >= slideUrls.length) {
-        clearInterval(slideInterval);
-        slideImg.classList.remove('visible');
-        if (sstUrls.length > 0) playSST();
-        else restartVideo();
-      } else {
-        setTimeout(() => {
-          slideImg.src = slideUrls[slideIndex];
-          slideImg.classList.add('visible');
-        }, 300);
-      }
-    }, 7000);
+    updateSlide();
   }
 
-  function playSST() {
-    if (sstUrls.length === 0) {
-      restartVideo();
-      return;
-    }
-
-    showSection(2);
-    sstIndex = 0;
-    animateSST();
-  }
-
-  function animateSST() {
-    if (sstIndex >= sstUrls.length) {
-      sstImg.classList.remove('visible');
-      if (slideUrls.length > 0) playSlides();
+  function updateSlide() {
+    if (slideIndex >= slideUrls.length) {
+      if (sstUrls.length > 0) playSST();
       else restartVideo();
       return;
     }
 
-    sstImg.src = sstUrls[sstIndex] + '?t=' + Date.now();
-    sstImg.classList.add('visible');
-    sstIndex++;
-
+    slideImg.classList.remove('visible');
     setTimeout(() => {
-      sstImg.classList.remove('visible');
-      setTimeout(() => animateSST(), 150);
-    }, 250);
+      slideImg.src = slideUrls[slideIndex];
+      slideImg.onload = () => {
+        slideImg.classList.add('visible');
+        slideIndex++;
+        setTimeout(updateSlide, 6000); // 6s per slide
+      };
+    }, 300); // fade out time
   }
 
-  function restartVideo() {
-    showSection(0);
-    video.currentTime = 0;
-    video.play();
-  }
-
-  init();
-</script>
+  function playSST() {
