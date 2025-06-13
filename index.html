@@ -65,15 +65,15 @@
     const video = document.getElementById('promoVideo');
     const sstImg = document.getElementById('sst-img');
 
-    // Function to rotate sections
     let currentIndex = 0;
+
     function showSection(index) {
       sections.forEach((sec, i) => {
         sec.classList.toggle('visible', i === index);
       });
     }
 
-    // Build SST image URLs for last 7 days
+    // SST image generation
     function getDateString(daysAgo) {
       const date = new Date();
       date.setUTCDate(date.getUTCDate() - daysAgo);
@@ -96,35 +96,55 @@
       img.src = url;
     });
 
-    // Loop through SST frames
     let sstIndex = 0;
-    function updateSSTFrame() {
-      sstImg.src = sstFrames[sstIndex] + `?t=${Date.now()}`;
-      sstIndex = (sstIndex + 1) % sstFrames.length;
+    let sstInterval = null;
+
+    function startSSTAnimation(callback) {
+      sstIndex = 0;
+      updateSSTFrame();
+      sstInterval = setInterval(() => {
+        sstIndex++;
+        if (sstIndex >= sstFrames.length) {
+          clearInterval(sstInterval);
+          callback(); // move to next section
+        } else {
+          updateSSTFrame();
+        }
+      }, 1000); // 1s per frame
     }
 
-    // Animation control
-    video.addEventListener('ended', () => {
+    function updateSSTFrame() {
+      sstImg.src = sstFrames[sstIndex] + `?t=${Date.now()}`;
+    }
+
+    // Rotation logic
+    function startSlidesSection() {
       currentIndex = 1;
       showSection(currentIndex);
-      setTimeout(() => {
-        currentIndex = 2;
-        showSection(currentIndex);
-        let animationInterval = setInterval(updateSSTFrame, 1000);
-        updateSSTFrame(); // start immediately
+      setTimeout(() => startSSTSection(), 15000); // 15 sec
+    }
 
-        setTimeout(() => {
-          clearInterval(animationInterval);
-          currentIndex = 0;
-          showSection(currentIndex);
-          video.currentTime = 0;
-          video.play();
-        }, sstFrames.length * 1000); // 1s per frame
-      }, 15000); // Slides section duration
+    function startSSTSection() {
+      currentIndex = 2;
+      showSection(currentIndex);
+      startSSTAnimation(() => {
+        startVideoSection();
+      });
+    }
+
+    function startVideoSection() {
+      currentIndex = 0;
+      showSection(currentIndex);
+      video.currentTime = 0;
+      video.play();
+    }
+
+    // Start cycle after video ends
+    video.loop = false;
+    video.addEventListener('ended', () => {
+      startSlidesSection();
     });
 
-    // Initial state
-    video.loop = false;
   </script>
 
 </body>
