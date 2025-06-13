@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Digital Sign</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    header {
+      text-align: center;
+      padding: 1rem;
+      font-size: 2rem;
+      background-color: #222;
+    }
+    .video-container {
+      width: 100%;
+      max-height: 50vh;
+      overflow: hidden;
+    }
+    video {
+      width: 100%;
+      height: auto;
+    }
+    .slideshow {
+      position: relative;
+      height: 300px;
+      background-color: #111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .slide {
+      position: absolute;
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .slide.active {
+      opacity: 1;
+    }
+    iframe {
+      width: 100%;
+      height: 400px;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+
+  <header>Welcome to Our Store</header>
+
+  <div class="video-container">
+    <video autoplay muted loop>
+      <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+  </div>
+
+  <div class="slideshow">
+    <img class="slide active" src="https://via.placeholder.com/800x300/FF5733/FFFFFF?text=Sale+Today%21" alt="Slide 1">
+    <img class="slide" src="https://via.placeholder.com/800x300/33C1FF/000000?text=New+Arrivals+in+Store" alt="Slide 2">
+    <img class="slide" src="https://via.placeholder.com/800x300/75FF33/000000?text=Open+7+Days+a+Week" alt="Slide 3">
+  </div>
+
+  <iframe src="https://forecast7.com/en/40d71n74d01/new-york/" allowtransparency="true" sandbox="allow-same-origin allow-scripts"></iframe>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    let index = 0;
+    setInterval(() => {
+      slides[index].classList.remove('active');
+      index = (index + 1) % slides.length;
+      slides[index].classList.add('active');
+    }, 4000);
+  </script>
+
+</body>
+</html>
