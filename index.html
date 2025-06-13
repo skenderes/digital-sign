@@ -1,60 +1,135 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Digital Sign</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    html, body { margin:0; padding:0; height:100%; background:black; overflow:hidden; }
-    .section { position:absolute; top:0; left:0; width:100vw; height:100vh; display:none; }
-    .visible { display:block; }
-    video, img { width:100%; height:100%; object-fit:cover; }
-    #slide-img, #sst-img { object-fit:contain; background:black; transition: opacity 1s ease; opacity:0; }
-    #slide-img.visible, #sst-img.visible { opacity:1; }
-  </style>
-</head>
-<body>
-  <div id="video-section" class="section visible">
-    <video id="promoVideo" autoplay muted playsinline src="https://raw.githubusercontent.com/skenderes/digital-sign/main/media/IUI_2023_intro_alpha_16x9_24fps.mp4"></video>
-  </div>
-  <div id="slides-section" class="section">
-    <img id="slide-img" src="" alt="Slide">
-  </div>
-  <div id="sst-section" class="section">
-    <img id="sst-img" src="" alt="SST Animation">
-  </div>
+<script>
+  const sections = [
+    document.getElementById('video-section'),
+    document.getElementById('slides-section'),
+    document.getElementById('sst-section')
+  ];
+  const video = document.getElementById('promoVideo');
+  const slideImg = document.getElementById('slide-img');
+  const sstImg = document.getElementById('sst-img');
 
-  <script>
-    const sections = [
-      document.getElementById('video-section'),
-      document.getElementById('slides-section'),
-      document.getElementById('sst-section')
-    ];
-    const video = document.getElementById('promoVideo');
-    const slideImg = document.getElementById('slide-img');
-    const sstImg = document.getElementById('sst-img');
+  let slideUrls = [], sstUrls = [], slideIndex = 0, sstIndex = 0;
 
-    let slideUrls = [], sstUrls = [], slideIndex=0, sstIndex=0;
+  function showSection(i) {
+    sections.forEach((s, idx) => s.classList.toggle('visible', idx === i));
+  }
 
-    function showSection(i){
-      sections.forEach((s,idx)=>s.classList.toggle('visible', idx===i));
+  async function loadSlideList() {
+    const resp = await fetch('https://api.github.com/repos/skenderes/digital-sign/contents/media/slides');
+    const data = await resp.json();
+    slideUrls = data
+      .filter(f => f.type === 'file' && /\.(jpe?g|png)$/i.test(f.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(f => f.download_url);
+  }
+
+  function getSSTDates(n = 30) {
+    const arr = [];
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() - i);
+      const y = d.getUTCFullYear(),
+            m = String(d.getUTCMonth() + 1).padStart(2, '0'),
+            day = String(d.getUTCDate()).padStart(2, '0');
+      arr.push(`https://www.ospo.noaa.gov/data/cb/ssta/daily/${y}/ct5km_ssta_v3.1_global_${y}${m}${day}.png`);
+    }
+    return arr;
+  }
+
+  function preloadUrls(urls) {
+    return Promise.all(urls.map(url => new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => resolve(url);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    }))).then(results => results.filter(Boolean));
+  }
+
+  async function init() {
+    await loadSlideList();
+    const rawSST = getSSTDates(30);
+    const [loadedSST, loadedSlides] = await Promise.all([
+      preloadUrls(rawSST),
+      preloadUrls(slideUrls)
+    ]);
+    sstUrls = loadedSST;
+    slideUrls = loadedSlides;
+    startCycle();
+  }
+
+  function startCycle() {
+    showSection(0);
+    video.loop = false;
+    video.onended = nextFromVideo;
+  }
+
+  function nextFromVideo() {
+    if (slideUrls.length > 0) {
+      playSlides();
+    } else if (sstUrls.length > 0) {
+      playSST();
+    } else {
+      restartVideo();
+    }
+  }
+
+  function playSlides() {
+    showSection(1);
+    slideIndex = 0;
+    slideImg.src = slideUrls[slideIndex];
+    slideImg.classList.add('visible');
+
+    const slideInterval = setInterval(() => {
+      slideImg.classList.remove('visible');
+      slideIndex++;
+      if (slideIndex >= slideUrls.length) {
+        clearInterval(slideInterval);
+        slideImg.classList.remove('visible');
+        if (sstUrls.length > 0) playSST();
+        else restartVideo();
+      } else {
+        setTimeout(() => {
+          slideImg.src = slideUrls[slideIndex];
+          slideImg.classList.add('visible');
+        }, 300);
+      }
+    }, 5000);
+  }
+
+  function playSST() {
+    if (sstUrls.length === 0) {
+      restartVideo();
+      return;
     }
 
-    // ✅ Load slideshow images from /media/slides and sort alphabetically
-    async function loadSlideList(){
-      const resp = await fetch('https://api.github.com/repos/skenderes/digital-sign/contents/media/slides');
-      const data = await resp.json();
-      slideUrls = data
-        .filter(f => f.type === 'file' && /\.(jpe?g|png)$/i.test(f.name))
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map(f => f.download_url);
+    showSection(2);
+    sstIndex = 0;
+    animateSST();
+  }
+
+  function animateSST() {
+    if (sstIndex >= sstUrls.length) {
+      sstImg.classList.remove('visible');
+      if (slideUrls.length > 0) playSlides();
+      else restartVideo();
+      return;
     }
 
-    // ✅ Get SST URLs in chronological order (oldest to newest)
-    function getSSTDates(n = 30){
-      const arr = [];
-      for(let i = n - 1; i >= 0; i--){ // reverse order
-        const d = new Date();
-        d.setUTCDate(d.getUTCDate() - i);
-        const y = d.getUTCFullYear(),
-              m = String(d.getUTCMonth() + 1).padStart(2, '0'),
+    sstImg.src = sstUrls[sstIndex] + '?t=' + Date.now();
+    sstImg.classList.add('visible');
+    sstIndex++;
+
+    setTimeout(() => {
+      sstImg.classList.remove('visible');
+      setTimeout(() => animateSST(), 150); // faster frame rate
+    }, 250);
+  }
+
+  function restartVideo() {
+    showSection(0);
+    video.currentTime = 0;
+    video.play();
+  }
+
+  init();
+</script>
